@@ -1,0 +1,179 @@
+CREATE TABLE admin_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'staff',
+    real_name VARCHAR(50),
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE farm_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    gender VARCHAR(10),                          -- male/female
+    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    wechat_number VARCHAR(50),
+    real_name VARCHAR(50),
+    status VARCHAR(20) DEFAULT 'active',         -- active/disabled
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE customer_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    gender VARCHAR(10),
+    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    wechat_number VARCHAR(50),
+    real_name VARCHAR(50),
+    region VARCHAR(100),                         -- 地区，如"北京市朝阳区"
+    company VARCHAR(100),                        -- 公司/学校
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE favorites (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES customer_users(id),  -- 关联游客用户
+    type VARCHAR(20) NOT NULL,                   -- farm / activity
+    target_id INTEGER NOT NULL,                  -- farms.id 或 activities.id
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(customer_id, type, target_id)
+);
+
+CREATE TABLE farms (
+    id SERIAL PRIMARY KEY,
+    owner_id INTEGER REFERENCES farm_users(id),  -- 关联农场主用户表
+    name VARCHAR(100) NOT NULL,
+    location VARCHAR(200),
+    description TEXT,
+    features TEXT,
+    pain_points TEXT,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE ai_plans (
+    id SERIAL PRIMARY KEY,
+    farm_id INTEGER REFERENCES farms(id),
+    plan_name VARCHAR(200) NOT NULL,
+    days INTEGER DEFAULT 1,
+    has_meal BOOLEAN DEFAULT FALSE,
+    has_stay BOOLEAN DEFAULT FALSE,              -- 是否住宿（新增）
+    user_input TEXT,
+    ai_output TEXT,
+    cost_estimate TEXT,
+    token_usage INTEGER,                         -- AI调用消耗的token数
+    token_cost DECIMAL(10,4),                    -- 预估费用（元）
+    status VARCHAR(20) DEFAULT 'pending',
+    published_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE activities (
+    id SERIAL PRIMARY KEY,
+    farm_id INTEGER REFERENCES farms(id),
+    plan_id INTEGER REFERENCES ai_plans(id),
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    days INTEGER DEFAULT 1,                      -- 天数
+    has_meal BOOLEAN DEFAULT FALSE,              -- 是否含餐
+    has_stay BOOLEAN DEFAULT FALSE,              -- 是否住宿
+    status VARCHAR(20) DEFAULT 'draft',          -- draft/published/sold_out/cancelled
+    published_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE activity_prices (
+    id SERIAL PRIMARY KEY,
+    activity_id INTEGER REFERENCES activities(id),
+    price DECIMAL(10,2) NOT NULL,
+    option_name VARCHAR(50) NOT NULL,            -- 选项名称，如"成人"、"儿童"、"家庭套票"
+    option_description TEXT,                     -- 选项描述，如"12岁以上"
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE b_orders (
+    id SERIAL PRIMARY KEY,
+    order_no VARCHAR(50) UNIQUE NOT NULL,
+    owner_id INTEGER REFERENCES farm_users(id),   -- 关联农场主用户
+    farm_id INTEGER REFERENCES farms(id),
+    order_type VARCHAR(20),                       -- plan_fee / monthly_fee
+    amount DECIMAL(10,2) NOT NULL,
+    payment_status VARCHAR(20) DEFAULT 'pending',
+    payment_time TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE c_orders (
+    id SERIAL PRIMARY KEY,
+    order_no VARCHAR(50) UNIQUE NOT NULL,
+    activity_id INTEGER REFERENCES activities(id),
+    farm_id INTEGER REFERENCES farms(id),
+    owner_id INTEGER REFERENCES farm_users(id),   -- 关联农场主用户
+    customer_id INTEGER REFERENCES customer_users(id),  -- 关联游客用户
+    quantity INTEGER DEFAULT 1,                   -- 总人数（替代 adult_count + child_count）
+    total_amount DECIMAL(10,2) NOT NULL,
+    platform_commission DECIMAL(10,2),
+    order_status VARCHAR(20) DEFAULT 'pending',
+    payment_time TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+
+
+Test Data
+
+-- admin_users
+INSERT INTO admin_users (username, password_hash, role, real_name) VALUES 
+('admin', 'admin123', 'admin', '系统管理员'),
+('zhangwei', 'admin123', 'reviewer', '张伟'),
+('lina', 'admin123', 'finance', '李娜');
+
+-- farm_users
+INSERT INTO farm_users (username, password_hash, gender, phone_number, wechat_number, real_name) VALUES 
+('farm_zhang', '123456', 'male', '13800138001', 'zhang_wechat', '张老板');
+
+-- customer_users
+INSERT INTO customer_users (username, password_hash, gender, phone_number, wechat_number, real_name, region, company) VALUES 
+('customer_wang', '123456', 'male', '13900139001', 'wang_wechat', '王小明', '北京市朝阳区', 'XX科技有限公司');
+
+-- farms
+INSERT INTO farms (owner_id, name, location, description, features, pain_points, status) VALUES 
+(1, '青青农场', '北京市怀柔区', '一个有草莓和蔬菜的亲子农场', '采摘,亲子,露营', '周末客流不稳定,淡季空闲', 'active');
+
+-- ai_plans
+INSERT INTO ai_plans (farm_id, plan_name, days, has_meal, has_stay, user_input, ai_output, cost_estimate, token_usage, token_cost, status) VALUES 
+(1, '小小农夫一日营', 1, true, false, '我们农场有草莓和蔬菜，想做亲子活动', 
+'{"theme":"小小农夫","activities":["插秧体验","草莓采摘","农家午餐"]}',
+'{"total":1250,"breakdown":{"物料":300,"人工":500,"餐饮":200}}', 1500, 0.15, 'approved');
+
+-- activities
+INSERT INTO activities (farm_id, plan_id, title, description, days, has_meal, has_stay, status, published_at) VALUES 
+(1, 1, '小小农夫一日营', '让孩子体验农耕乐趣', 1, true, false, 'published', NOW());
+
+-- activity_prices
+INSERT INTO activity_prices (activity_id, price, option_name, option_description, sort_order) VALUES 
+(1, 128, '成人票', '12岁及以上', 1),
+(1, 88, '儿童票', '3-12岁', 2),
+(1, 298, '家庭套票', '2大1小', 3);
+
+-- b_orders
+INSERT INTO b_orders (order_no, owner_id, farm_id, order_type, amount, payment_status, payment_time) VALUES 
+('BORD20260001', 1, 1, 'plan_fee', 99, 'paid', NOW());
+
+-- c_orders
+INSERT INTO c_orders (order_no, activity_id, farm_id, owner_id, customer_id, quantity, total_amount, platform_commission, order_status, payment_time) VALUES 
+('ORD20260001', 1, 1, 1, 1, 3, 344, 27.52, 'confirmed', NOW());
+
+-- favorites
+INSERT INTO favorites (customer_id, type, target_id) VALUES 
+(1, 'farm', 1);

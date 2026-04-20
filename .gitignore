@@ -1,0 +1,43 @@
+# 依赖文件夹
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 环境变量文件
+.env
+.env.local
+.env.production
+
+# 后端
+backend/node_modules/
+backend/.env
+backend/*.log
+
+# 前端
+admin-frontend/node_modules/
+admin-frontend/.env
+admin-frontend/.env.local
+admin-frontend/dist/
+admin-frontend/.vercel/
+
+# 构建产物
+build/
+dist/
+*.log
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 其他
+*.tmp
+*.temp
+.cache/
