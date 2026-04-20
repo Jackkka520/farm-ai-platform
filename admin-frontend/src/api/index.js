@@ -13,6 +13,9 @@ const API_BASE_URL = 'https://prissy-agent-pants.ngrok-free.dev/api/admin';
 const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 30000,
+    headers: {
+        'ngrok-skip-browser-warning': '1' // <-- 添加这一行
+    }
 });
 
 // 仪表盘
